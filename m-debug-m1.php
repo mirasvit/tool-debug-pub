@@ -58,6 +58,7 @@ class Mirasvit_Command_Validate_ValidateCommand extends Mirasvit_Command_BaseCom
 
         $validators = [
             new Mirasvit_Command_Validate_Validators_SearchValidator(),
+            new Mirasvit_Command_Validate_Validators_FpcValidator(),
         ];
         /** @var Mirasvit_Command_Validate_Validators_SearchValidator $validator */
         foreach ($validators as $validator) {
@@ -259,6 +260,269 @@ abstract class Mirasvit_Command_Validate_Validators_BaseValidator
 }
 
 
+class Mirasvit_Command_Validate_Validators_FpcValidator extends Mirasvit_Command_Validate_Validators_BaseValidator
+{
+
+    public function moduleName()
+    {
+       return "Mirasvit_Fpc";
+    }
+
+    public function run()
+    {
+        $this->testTablesExists();
+        $this->testPhpConfiguration();
+        $this->testConflicts();
+        $this->testSimilarExtensions();
+        $this->testCompatibility();
+        $this->testDomainNameIsPinged();
+    }
+
+    public function testDomainNameIsPinged()
+    {
+        $opts = array('http' => array(
+            'timeout' => 3,
+        ),
+        );
+        $context = stream_context_create($opts);
+        Mage::register('custom_entry_point', true, true);
+        $store = Mage::app()->getStore(0);
+        $url = parse_url($store->getUrl());
+        $u = $url['scheme'].'://'.$url['host'].'/';
+        $isPinged = file_get_contents($u, false, $context);
+
+        if (strpos("/skin/frontend/") === false) {
+            $this->printError(
+                "Your server can't connect to the domain {$url['host']}.",
+                "Cralwer can't work",
+                "Make sure that command 'curl {$url['host']}' returns valid html page"
+            );
+        }
+
+    }
+
+
+    public function testPhpConfiguration()
+    {
+        $memoryLimit = ini_get('memory_limit');
+        $memoryLimit = (int) $memoryLimit;
+        if ($memoryLimit < 256 && $memoryLimit != -1) {
+            $this->printError(
+                "Low memory limit",
+                "",
+                'You need to increase memory limit to at least 256M (512M or higher is recommended). Current value is '.$memoryLimit.'.');
+
+        }
+    }
+    public function testTablesExists()
+    {
+        $tables = array(
+            'fpccrawler/crawler_url',
+            'fpccrawler/crawlerlogged_url',
+            'fpc/log',
+            'fpc/log_aggregated_daily',
+        );
+        foreach ($tables as $table) {
+            if (!$this->dbTableExists($table)) {
+                $this->printError(
+                    "Table '$table' does not exist",
+                    "",
+                    '');
+            }
+        }
+        return array($result, $title, $description);
+    }
+    public function testConflicts()
+    {
+        if (Mage::helper('mstcore')->isModuleInstalled('Devinc_Gomobile')) {
+            $this->printError(
+                "Conflict",
+                "",
+                'Devinc Gomobile installed. If you see folowing code "Mage::app()->getCacheInstance()->flush();"'.
+                'in file /app/code/community/Devinc/Gomobile/Model/Observer.php, please comment out it and contact to developers of the extension or disable this extension.'.
+                "This code periodically flush cache, so Full Page Cache can't work correctly."
+        );
+        }
+        if (Mage::helper('mstcore')->isModuleInstalled('Lesti_Fpc')) {
+            $this->printError(
+                "Conflict",
+                "Full Page Cache can't work correctly with Lesti Fpc installed.",
+                'Lesti Fpc installed. Please, disable the extension in file /app/etc/modules/Lesti_Fpc.xml. Then flush all cache.'
+            );
+        }
+        if (Mage::helper('mstcore')->isModuleInstalled('Emagicone_Mobassistantconnector')) {
+            $this->printError(
+                "Conflict",
+                'Extension Emagicone Mobassistantconnector installed. If FPC flush cache very often without visible reason the reason can be in Emagicone_Mobassistantconnector extension.',
+                'To fix the issue in file /app/code/community/Emagicone/Mobassistantconnector/controllers/IndexController.php comment line  Mage::app()->cleanCache();'
+            );
+        }
+        if (Mage::helper('mstcore')->isModuleInstalled('Aitoc_Aitsys')) {
+            $this->printError(
+                "Conflict",
+                "Extension Aitoc_Aitsys installed. If FPC don't cache pages without visible reason the reason can be in Aitoc_Aitsys extension.",
+                'To fix the issue in file /app/code/community/Aitoc/Aitsys/Abstract/Service.php comment line $this->getCache()->flush();'
+            );
+        }
+        if (Mage::helper('mstcore')->isModuleInstalled('Softag_Powerdash')) {
+            $this->printError(
+                "Conflict",
+                'Extension Softag_Powerdash installed. If FPC flush cache very often without visible reason the reason can be in Softag_Powerdash extension.',
+                'To fix the issue in file /app/code/community/Softag/Powerdash/Helper/Data.php comment line Mage::app()->getCache()->clean(\'all\', array(self::CACHE_TAG));'
+            );
+        }
+        if (Mage::helper('mstcore')->isModuleInstalled('Mci_Core')) {
+            $this->printError(
+                "Conflict",
+                "Extension Mci_Core installed. If FPC don't cache pages without visible reason the reason can be in Mci_Core extension.",
+                "To fix the issue in file //app/code/community/Mci/Core/Model/Observer.php comment line _967976c690de23ce4d148bc33b3fb384(true);"
+            );
+        }
+        if (Mage::helper('mstcore')->isModuleInstalled('GoMage_Procart')) {
+            $this->printError(
+                "Conflict",
+                '',
+                "Extension GoMage_Procart installed. To update cart correctly you need do <a href='https://docs.mirasvit.com/doc/extension_fpc/current/faq#gomage_procart_compatibility'>following steps</a>"
+            );
+        }
+        if (Mage::helper('mstcore')->isModuleInstalled('Cmsmart_Megamenu')) {
+            $this->printError(
+                "Conflict",
+                'Extension Cmsmart_Megamenu installed. FPC crawler can\'t work incorrectly.',
+                'To fix the issue in file /app/code/local/Cmsmart/Megamenu/Block/Navigation.php delete first empty line before php tag.'
+            );
+        }
+        if (Mage::helper('mstcore')->isModuleInstalled('MailUp_MailUpSync')) {
+            $this->printError(
+                "Conflict",
+                'Extension MailUp_MailUpSync installed. If FPC flush cache without visible reason the reason can be in MailUp_MailUpSync extension.',
+                'To fix the issue in file /app/code/local/MailUp/MailUpSync/Model comment line Mage::app()->cleanCache();'
+            );
+        }
+        if (Mage::helper('mstcore')->isModuleInstalled('Netreviews_Avisverifies')) {
+            $this->printError(
+                "Conflict",
+                'Extension Netreviews_Avisverifies installed. If FPC flush cache without visible reason the reason can be in Netreviews_Avisverifies extension.',
+                'To fix the issue in file /app/code/local/Netreviews/Avisverifies/controllers/DialogController.php comment lines Mage::app()->cleanCache();'
+            );
+        }
+    }
+
+    public function testSimilarExtensions()
+    {
+        $modules = array_keys((array) Mage::getConfig()->getNode('modules')->children());
+        foreach ($modules as $module) {
+            if (stripos($module, 'fpc') !== false && $module != 'Mirasvit_Fpc' && $module != 'Mirasvit_FpcCrawler') {
+                $this->printError(
+                    "Conflicts with similar extensions",
+                    "Another FPC extension '$module' installed",
+                    'Please remove it.'
+                );
+            }
+        }
+    }
+
+    public function testCompatibility()
+    {
+        if (Mage::helper('mstcore')->isModuleInstalled('Simple_Forum')) {
+
+            $description = array();
+            $description[] = 'If you want cache forum page add in System->Configuration->Full Page Cache->Cachable Actions: forum/topic_index, forum/topic_view, forum/index_index.';
+            $description[] = "And in System->Configuration->Full Page Cache->Ignored Pages: /forum/\like/\like/";
+            $description[] = 'To enable autoflush when user like post or add post comment out code <br/>
+             $content = Mage::helper(\'fpc/simpleforum\')->prepareContent($content);<br/>
+             and<br/>
+             if ($topicCacheId = Mage::helper(\'fpc/simpleforum\')->getSimpleForumCacheId()) {<br/>
+             &nbsp;&nbsp;&nbsp;   $this->_requestId .= $del . $topicCacheId;<br/>
+             }<br/>
+             in file /app/code/local/Mirasvit/Fpc/Model/Processor.php (Simple_Forum extension compatibility).
+             ';
+            $this->printWarning(
+                "Compatibility with extensions",
+                "Another FPC extension '$module' installed",
+                implode("<br>", $description)
+            );
+        }
+        if (Mage::helper('mstcore')->isModuleInstalled('Jn2_Cache')) {
+            $this->printWarning(
+                "Compatibility with extensions",
+                "You use magento 'JN2 solution'",
+                "Add /cache-get=/ in Ignored Pages ( System->Full Page Cache->Settings )."
+            );
+        }
+        if (Mage::helper('mstcore')->isModuleInstalled('Xtento_StockImport')) {
+            $this->printWarning(
+                "Compatibility with extensions",
+                "Xtento_StockImport is installed",
+                'For Full Page Caching to update stock properly, please set "Cache Level" to "Default"
+                    and do one of the following:
+                    1) Set Catalog->Stock Import->Import Profiles->Import Settings->"Reindex mode"
+                    to "Full reindex (after import)" or 2) Set FPC > Configuration > "Update stock method"
+                    to "Update during full reindex". Please note: second solution will //require manual reindex
+                    of "Stock Status" after import using Xtento_StockImport extension.'
+            );
+        }
+        if (Mage::helper('mstcore')->isModuleInstalled('Mirasvit_Action')) {
+            $this->printWarning(
+                "Compatibility with extensions",
+                "Mirasvit Promotional Offers is installed",
+                'To exclude Mirasvit Promotional Offers timer from FPC cache you need uncomment block action_view_timer (action/link)
+             in file /app/code/local/Mirasvit/Fpc/etc/cache.xml.'
+            );
+        }
+        if (Mage::helper('mstcore')->isModuleInstalled('WP_SmartColumns')
+            && $this->isBlockExcluded('catalog_product_list', 'catalog/product_list', 'product_list')) {
+            $this->printWarning(
+                "Compatibility with extensions",
+                "WP_SmartColumns is installed",
+                'To exclude \'catalog/product_list\'
+                block you need change in file /app/code/community/WP/SmartColumns/Block/Toolbar.php
+                private function _getLayoutFileName() line "$template = $this->getLayout()->getBlock(\'root\')->getTemplate();"
+                at "if (Mage::registry(\'current_category_id\')) {
+                    $template = [direct_template_value];
+                } else {
+                    $template = $this->getLayout()->getBlock(\'root\')->getTemplate();
+                }"
+                [direct_template_value] you will see if temporarily write "echo $template"
+                ([direct_template_value] can be \'page/3columns.phtml\' or similar).'
+            );
+        }
+    }
+
+    private function prepareVersion($version)
+    {
+        //fix for new versions
+        $explodedVersion = explode('.', $version);
+        if (isset($explodedVersion[3]) && $explodedVersion[3] == 0) {
+            return str_replace('.', '', $version) * 10;
+        }
+        return str_replace('.', '', $version);
+    }
+    /**
+     * @param string $block
+     * @param string $name
+     *
+     * @return bool
+     */
+    private function isBlockExcluded($blockContainer, $block, $name)
+    {
+        $customConfig = Mage::getConfig()->loadModulesConfiguration('custom.xml');
+        $customConfigNode = $customConfig->getNode();
+        $customConfigNodeAsArray = $customConfigNode->asArray();
+        if ($customConfigNodeAsArray
+            && isset($customConfigNodeAsArray['containers'][$blockContainer])
+            && isset($customConfigNodeAsArray['containers'][$blockContainer]['block'])
+            && isset($customConfigNodeAsArray['containers'][$blockContainer]['name'])
+            && ($customConfigNodeAsArray['containers'][$blockContainer]['block'] == $block)
+            && ($customConfigNodeAsArray['containers'][$blockContainer]['name'] == $name)
+        ) {
+            return true;
+        }
+        return false;
+    }
+}
+
+
 class Mirasvit_Command_Validate_Validators_SearchValidator extends Mirasvit_Command_Validate_Validators_BaseValidator
 {
 
@@ -280,6 +544,7 @@ class Mirasvit_Command_Validate_Validators_SearchValidator extends Mirasvit_Comm
         $this->testCatalogSearchQuerySize();
         $this->testConflictExtensions();
         $this->testFulltextCollectionRewrite();
+        $this->testAmastySortingAndMDNAdvancedStock();
     }
 
 
@@ -490,6 +755,20 @@ class Mirasvit_Command_Validate_Validators_SearchValidator extends Mirasvit_Comm
             return "$class must be $classNameB, current rewrite is " . get_class($object);
         }
     }
+
+    public function testAmastySortingAndMDNAdvancedStock()
+    {
+        if (Mage::helper('mstcore')->isModuleInstalled('Amasty_Sorting') 
+            && Mage::helper('mstcore')->isModuleInstalled('MDN_AdvancedStock')
+            && Mage::getStoreConfig('amsorting/general/out_of_stock_last') == 1) {
+                $this->printError(
+                    'Conflicts with another extensions',
+                    "SQl query error : Column 'stock_id' in on clause is ambiguous",
+                    'If you have problems with your search please set Show `Out of Stock` Products Last option to "Yes for Catalog, No for search" '.
+                    'in System->Improved Sorting by Amasty , General section.'
+                );
+        }
+    }
 }
 
 
@@ -505,6 +784,7 @@ define("CLI_ROOT", dirname(__DIR__));
 //require __DIR__ . "/app/Command/BaseCommand.php";
 //require __DIR__ . "/app/Command/Validate/Validators/BaseValidator.php";
 //require __DIR__ . "/app/Command/Validate/Validators/SearchValidator.php";
+//require __DIR__ . "/app/Command/Validate/Validators/FpcValidator.php";
 //require __DIR__ . "/app/Command/Validate/ValidateCommand.php";
 
 $application = new Mirasvit_Application();
