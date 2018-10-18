@@ -109,38 +109,59 @@ abstract class Mirasvit_Command_Validate_Validators_BaseValidator
     public abstract function moduleName();
 
     public function printH1($message){
-        $this->writeln("<br><message>{$message}</message>");
+        $this->writeln("");
+        $this->writeln("<message>{$message}</message>");
     }
 
     public function printError($problemDescription, $whatErrorsWeWillSee, $howToFixIt){
-        $this->writeln("<error>{$problemDescription}</error>");
+        $this->writeln("<error>* {$problemDescription}</error>");
         $this->writeln("<command>It leads to the issues:</command> {$whatErrorsWeWillSee}");
         $this->writeln("<command>How to fix it:</command> {$howToFixIt}\n");
     }
 
     public function printWarning($problemDescription, $whatErrorsWeWillSee, $howToFixIt){
-        $this->writeln("<warning>{$problemDescription}</warning>");
+        $this->writeln("<warning>* {$problemDescription}</warning>");
         $this->writeln("<command>It leads to the issues:</command> {$whatErrorsWeWillSee}");
         $this->writeln("<command>How to fix it:</command> {$howToFixIt}\n");
     }
 
     public function writeln($message){
-        $message = str_replace("<message>", "<font color=green>", $message);
-        $message = str_replace("</message>", "</font>", $message);
+        if ($this->isCli()) {
+            $message = str_replace("<message>", "\e[1;32;6m", $message);
+            $message = str_replace("</message>", "\e[0m\n", $message);
 
-        $message = str_replace("<command>", "<font color=blue>", $message);
-        $message = str_replace("</command>", "</font>", $message);
+            $message = str_replace("<command>", "\e[0;34;6m", $message);
+            $message = str_replace("</command>", "\e[0m\n", $message);
+
+            $message = str_replace("<error>", "\e[0;31;6m", $message);
+            $message = str_replace("</error>", "\e[0m\n", $message);
+
+            $message = str_replace("<warning>", "\e[1;33;6m", $message);
+            $message = str_replace("</warning>", "\e[0m\n", $message);
+
+            echo $message."\n";
+        } else {
+            $message = str_replace("<message>", "<font color=green>", $message);
+            $message = str_replace("</message>", "</font>", $message);
+
+            $message = str_replace("<command>", "<font color=blue>", $message);
+            $message = str_replace("</command>", "</font>", $message);
 
 
-        $message = str_replace("<error>", "<font color=red>", $message);
-        $message = str_replace("</error>", "</font>", $message);
+            $message = str_replace("<error>", "<font color=red>", $message);
+            $message = str_replace("</error>", "</font>", $message);
 
-        $message = str_replace("<warning>", "<font color=yellow>", $message);
-        $message = str_replace("</warning>", "</font>", $message);
+            $message = str_replace("<warning>", "<font color=yellow>", $message);
+            $message = str_replace("</warning>", "</font>", $message);
 
-        echo $message."<br>";
+            echo $message . "<br>";
+        }
     }
 
+    public function isCli()
+    {
+        return (php_sapi_name() === 'cli');
+    }
 
     public function validateRewrite($class, $classNameB)
     {
