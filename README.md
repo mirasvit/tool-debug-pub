@@ -2,7 +2,7 @@
 ## M2
 ```
 wget -O bin/debug https://raw.githubusercontent.com/mirasvit/tool-debug-pub/master/debug.phar
-php bin/debug
+php bin/debug validate
 ```
 
 ## M1
